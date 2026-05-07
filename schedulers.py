@@ -1,4 +1,4 @@
-from simulation import Scheduler, END_OF_SIMULATION, JOB_FINISHED, LLF_PRIORITY_CHANGE
+from simulation import Scheduler, END_OF_SIMULATION, JOB_FINISHED, LLF_PRIORITY_CHANGE, JOB_OVERRUN
 import time 
 import heapq
 
@@ -61,6 +61,11 @@ class LLF(Scheduler):
             if finish_time < min_time:
                 min_time = finish_time
                 cause = JOB_FINISHED
+
+        for overrun in self.overruns:
+            if overrun[0] < min_time:
+                min_time = overrun[0]
+                cause = JOB_OVERRUN
 
         if self.thrashing_interrupt < min_time:
             min_time = self.thrashing_interrupt

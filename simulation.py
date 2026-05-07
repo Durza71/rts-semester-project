@@ -2,11 +2,13 @@ import time
 import csv
 import numpy as np
 from scipy.integrate import quad
+import random
 
 JOB_FINISHED = "job_finished"
 END_OF_SIMULATION = "end_of_simulation"
 LLF_PRIORITY_CHANGE = "thrashing"
 RESOURCE_LIMIT = "resource_limit"
+JOB_OVERRUN = "Something took way too long"
 
 class Job:
     def __init__(self, task_name, job_name, C, release_time, deadline):
@@ -30,7 +32,7 @@ class Job:
             self.slack = self.deadline - sim_time
             self.met_deadline = sim_time <= self.deadline
 
-            print(f"{sim_time} - Finished Job {self.name}")
+            #print(f"{sim_time} - Finished Job {self.name}")
 
 
 class Task:
@@ -48,7 +50,7 @@ class Task:
         release_time = time
         deadline = self.phase + self.times_run * self.period + self.deadline
 
-        print(f"{time} - Created Job {job_name}")
+        #print(f"{time} - Created Job {job_name}")
 
         return Job(self.name, job_name, self.execution_time, release_time, deadline)
 
@@ -58,8 +60,8 @@ class Task:
 class Resources():
     def __init__(self, squeezing = False):
         self.f = lambda x : (
-            1 if x < 250
-            else 0.7 if x < 500
+            1 if x < 100
+            else 0.7 if x < 250
             else 1
         )
 
@@ -73,12 +75,13 @@ class Resources():
         return result  # ~9.0
 
 class Scheduler:
-    def __init__(self, limit=1000):
+    def __init__(self, limit=1000, name="simulator", squeezing = True):
         self.tasks = {}
         self.jobs = []
         self.time = 0
         self.job = None
         self.limit = limit
+        self.name = name
 
         self.utilization = 0
         self.completed_jobs = 0
@@ -86,10 +89,15 @@ class Scheduler:
 
         self.completed_job_data = []
 
-        self.resources = Resources(True)
+        self.resources = Resources(squeezing)
+
+        self.overruns = []
 
     def add_task(self, name, period, phase, execution_time, deadline):
         self.tasks[name] = Task(name, period, phase, execution_time, deadline)
+
+    def add_overruns(self, time, number, duration):
+        self.overruns.append((time, number, duration))
 
     def get_next_moment(self):
         min_time = self.limit
@@ -107,6 +115,11 @@ class Scheduler:
                 min_time = finish_time
                 cause = JOB_FINISHED
 
+        for overrun in self.overruns:
+            if overrun[0] < min_time:
+                min_time = overrun[0]
+                cause = JOB_OVERRUN
+
         if min_time < self.time:
             min_time = self.time
 
@@ -118,12 +131,14 @@ class Scheduler:
         return self.jobs[0]
 
     def run(self):
+        self.overruns.sort(key=lambda x : x[0])
+
         while self.time < self.limit:
             cause, next_moment = self.get_next_moment()
                 
 
-            if next_moment != self.time and self.job is not None:
-                print(f"{self.time} : {next_moment} - Running Job {self.job.name}")
+            #if next_moment != self.time and self.job is not None:
+            #    print(f"{self.time} : {next_moment} - Running Job {self.job.name}")
 
             period = next_moment - self.time
             running_since = self.time
@@ -152,6 +167,16 @@ class Scheduler:
                     self.jobs.remove(self.job)
                     self.job = None
 
+            if cause == JOB_OVERRUN:
+                overrun = self.overruns.pop()
+                if len(self.jobs) < overrun[1]:
+                    self.add_overruns(overrun[0] + 10, overrun[1] - len(self.jobs), overrun[2])
+                    jobs = random.sample(self.jobs, min(len(self.jobs), overrun[1]))
+
+                    for j in jobs:
+                        j.execution_time += overrun[2]
+                    cause = LLF_PRIORITY_CHANGE
+
             # Handle new job release
             if cause in self.tasks:
                 self.jobs.append(self.tasks[cause].create_job(self.time))
@@ -164,11 +189,11 @@ class Scheduler:
 
                 # convert ns → ms (optional, small effect)
                 self.time += (end - start) / 1_000_000
-        self.report()
+        self.report(self.name)
 
-    def report(self):
+    def report(self, name):
         # Write CSV
-        with open("results.csv", "w", newline="") as f:
+        with open(f"{name}.csv", "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([
                 "Job Name",
@@ -180,10 +205,10 @@ class Scheduler:
             ])
             writer.writerows(self.completed_job_data)
 
-        print("DONE!")
-        print(f"{len(self.jobs)} not finished")
-        print(f"{self.utilization / self.limit} utilization")
-        print(f"{self.missed_deadlines} missed deadlines out of {self.completed_jobs} jobs")
+        #print("DONE!")
+        #print(f"{len(self.jobs)} not finished")
+        #print(f"{self.utilization / self.limit} utilization")
+        #print(f"{self.missed_deadlines} missed deadlines out of {self.completed_jobs} jobs")
 
 
 if __name__ == "__main__":
