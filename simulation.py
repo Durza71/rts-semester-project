@@ -60,13 +60,13 @@ class Task:
 class Resources():
     def __init__(self, squeezing = False):
         self.f = lambda x : (
-            1 if x < 100
-            else 0.7 if x < 250
+            1 if x < 2000
+            else 0.7 if x < 4000
             else 1
         )
 
         if not squeezing:
-            self. f = lambda x : 1
+            self.f = lambda x : 1
 
 
     def get_resources(self, start, end):
@@ -75,7 +75,7 @@ class Resources():
         return result  # ~9.0
 
 class Scheduler:
-    def __init__(self, limit=1000, name="simulator", squeezing = True):
+    def __init__(self, limit=1000, name="simulator", squeezing = False):
         self.tasks = {}
         self.jobs = []
         self.time = 0
@@ -170,7 +170,7 @@ class Scheduler:
             if cause == JOB_OVERRUN:
                 overrun = self.overruns.pop()
                 if len(self.jobs) < overrun[1]:
-                    self.add_overruns(overrun[0] + 10, overrun[1] - len(self.jobs), overrun[2])
+                    self.add_overruns(overrun[0] + 50, overrun[1] - len(self.jobs), overrun[2])
                     jobs = random.sample(self.jobs, min(len(self.jobs), overrun[1]))
 
                     for j in jobs:

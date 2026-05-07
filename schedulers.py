@@ -9,8 +9,8 @@ class EDF(Scheduler):
         return min(self.jobs, key=lambda j: j.deadline)
     
 class RM(Scheduler):
-    def __init__(self, limit=1000):
-        super().__init__(limit)
+    def __init__(self, limit=1000, name="scheduler", squeezing=False):
+        super().__init__(limit, name, squeezing)
 
         self.priorities = {}
 
@@ -25,8 +25,8 @@ class RM(Scheduler):
         return min(self.jobs, key= lambda j : self.priorities[j.name.split("_")[0]])
 
 class LLF(Scheduler):
-    def __init__(self, limit=1000):
-        super().__init__(limit)
+    def __init__(self, limit=1000, name="scheduler", squeezing=False):
+        super().__init__(limit, name, squeezing)
 
         self.thrashing_interrupt = limit
 
